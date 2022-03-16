@@ -6,6 +6,8 @@ require (
 	github.com/buger/jsonparser v1.1.1
 	github.com/c-bata/go-prompt v0.2.5
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e
+	github.com/danwakefield/fnmatch v0.0.0-20160403171240-cbb64ac3d964 // indirect
+	github.com/denormal/go-gitignore v0.0.0-20180930084346-ae8ad1d07817
 	github.com/google/uuid v1.3.0
 	github.com/gookit/color v1.4.2
 	github.com/jedib0t/go-pretty/v6 v6.2.2

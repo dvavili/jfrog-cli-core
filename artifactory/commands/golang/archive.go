@@ -41,6 +41,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/denormal/go-gitignore"
 	"golang.org/x/mod/module"
 )
 
@@ -94,10 +95,15 @@ const (
 // Archive project files according to the go project standard
 func archiveProject(writer io.Writer, dir, mod, version string) error {
 	m := module.Version{Version: version, Path: mod}
-	//ignore, gitIgnoreErr := gitignore.NewFromFile(sourcePath + "/.gitignore") ??
+
+	// Ignore any files or directories listed in .jfrogignore file
+	ignore, err := gitignore.NewFromFile(dir + "/.jfrogignore")
+	if err != nil {
+		return err
+	}
 	var files []File
 
-	err := filepath.Walk(dir, func(filePath string, info os.FileInfo, err error) error {
+	err = filepath.Walk(dir, func(filePath string, info os.FileInfo, err error) error {
 		relPath, err := filepath.Rel(dir, filePath)
 		if err != nil {
 			return err
@@ -113,10 +119,14 @@ func archiveProject(writer io.Writer, dir, mod, version string) error {
 			// fossil repos are regular files with arbitrary names, so we don't try
 			// to exclude them.
 			switch filepath.Base(filePath) {
-			case ".bzr", ".git", ".hg", ".svn":
+			case ".bzr", ".git", ".hg", ".svn", ".idea":
 				return filepath.SkipDir
 			}
 
+			// Skip files in .jfrogignore
+			if shouldIgnoreFile(ignore, slashPath, true) {
+				return filepath.SkipDir
+			}
 			// Skip some subdirectories inside vendor, but maintain bug
 			// golang.org/issue/31562, described in isVendoredPackage.
 			// We would like Create and CreateFromDir to produce the same result
@@ -133,7 +143,7 @@ func archiveProject(writer io.Writer, dir, mod, version string) error {
 			return nil
 		}
 		if info.Mode().IsRegular() {
-			if !isVendoredPackage(slashPath) {
+			if !isVendoredPackage(slashPath) && !shouldIgnoreFile(ignore, slashPath, false){
 				files = append(files, dirFile{
 					filePath:  filePath,
 					slashPath: slashPath,
@@ -151,6 +161,16 @@ func archiveProject(writer io.Writer, dir, mod, version string) error {
 	}
 
 	return Create(writer, m, files)
+}
+
+func shouldIgnoreFile(ignoreList gitignore.GitIgnore, name string, isDir bool) bool {
+	// Skip files in ignoreList
+	// fmt.Printf("Checking ignore of: %s\n", name)
+	if match := ignoreList.Relative(name, isDir); match != nil {
+		fmt.Printf("Skipping: %s\n", name)
+		return match.Ignore()
+	}
+	return false
 }
 
 func isVendoredPackage(name string) bool {
